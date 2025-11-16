@@ -95,6 +95,15 @@ canvas.addEventListener("click", (e) => {
     }
 });
 
+function checkPiece(r, c) {
+    for (let i = 0; i < pieces.length; i++) {
+        if (pieces[i].r === r && pieces[i].c === c) {
+            return pieces[i].color;   // devolve "white" ou "black"
+        }
+    }
+    return "";  // vazio se não tem peça
+}
+
 /*
  * Highlight a selected piece
  */
@@ -114,12 +123,25 @@ function highlight(r, c) {
     ctx.strokeStyle = "#fff";
     ctx.lineWidth = 2;
     ctx.stroke();
-
-    // Draw possible-move squares (example)
-    drawDashedSquare(r+1, c+1);
-    drawDashedSquare(r+1, c-1);
-    drawDashedSquare(r-1, c+1);
-    drawDashedSquare(r-1, c-1);
+    
+    var king=false;
+    
+    // Draw possible-move squares
+    var moves=king?8:1;
+    for (var i=1;i<=moves;i++) {
+        if (checkPiece(r+i, c+i)=="") {
+            drawDashedSquare(r+i, c+i);
+        }
+        if (checkPiece(r+i, c-i)=="") {
+            drawDashedSquare(r+i, c-i);
+        }
+        if (checkPiece(r-i, c+i)=="") {
+            drawDashedSquare(r-i, c+i);
+        }
+        if (checkPiece(r-i, c-i)=="") {
+            drawDashedSquare(r-i, c-i);
+        }
+    }
 }
 
 /*
