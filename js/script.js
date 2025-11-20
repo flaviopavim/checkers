@@ -6,7 +6,7 @@
  */
 
 let pieces = [
-    [0, 2, 0, 2, 0, 2, 0, 2],
+    [0, 3, 0, 2, 0, 2, 0, 2],
     [2, 0, 2, 0, 2, 0, 2, 0],
     [0, 2, 0, 2, 0, 2, 0, 2],
     [0, 0, 0, 0, 0, 0, 0, 0],
@@ -20,6 +20,7 @@ let pieces = [
  * Draw the board
  */
 
+const status = document.getElementById("status");
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d");
 
@@ -62,12 +63,14 @@ function drawPiece(r, c) {
     // Circle base
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = piece == 1 ? "#ffffff" : "#000000"; // branca ou preta
+    ctx.fillStyle = ((piece == 1 || piece == 3) ? "#ffffff" : (piece == 2 || piece == 4 ? "#000000" : "#666666")); // contraste
     ctx.fill();
 
     // Label
-    const label = "Pawn"; // letra correspondente
-    ctx.fillStyle = piece == 1 ? "#000000" : "#ffffff"; // contraste
+    let label = ((piece == 1 || piece == 2) ? "Pawn" : (piece == 3 || piece == 4 ? "King" : "---")); // letra correspondente
+    ctx.fillStyle = ((piece == 1 || piece == 3) ? "#000000" : (piece == 2 || piece == 4 ? "#ffffff" : "#666666")); // contraste
+
+
     ctx.font = (tile * 0.18) + "px Arial";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -86,36 +89,6 @@ function drawPieces() {
 
 drawPieces();
 
-
-/*
- * Game functions
- */
-
-function verifyPoints(pieces, player) {
-
-    /*
-     * Verify a player's points.
-     * Used to determine the winner
-     * in case of a draw.
-     * 
-     * The minimum is 1
-     * 0 means game over.
-     */
-
-    let points = 0;
-    for (let r = 0; r < pieces.length; r++) {
-        for (let c = 0; c < pieces[r].length; c++) {
-            if (player == 1 && (pieces[r][c] == 1 || pieces[r][c] == 3)) {
-                points += 1;
-            }
-            if (player == 2 && (pieces[r][c] == 2 || pieces[r][c] == 4)) {
-                points += 1;
-            }
-        }
-    }
-    return points;
-}
-
 let turn = 1; // 0 - not started, 1 - white piece, 2 - black piece
 let selectedPieceX = -1; // Selected piece
 let selectedPieceY = -1; // Selected piece
@@ -126,9 +99,7 @@ let selectedPieceY = -1; // Selected piece
  */
 
 function filterMoves(moves) {
-
     // Filter moves inside board
-
     let filteredMoves = [];
     for (let i = 0; i < moves.length; i++) {
         if (
@@ -138,118 +109,140 @@ function filterMoves(moves) {
             filteredMoves.push([moves[i][0], moves[i][1]]);
         }
     }
-
     return filteredMoves;
 }
 
-function getBishopMoves(r, c) {
 
-    let moves = [];
+function getChains(r, c, blackPiece, isKing = false, visited = new Set()) {
 
-    // Generate diagonal moves in all 4 directions
-    for (let i = 1; i <= 8; i++) {
-        if (r + i < 8 && c + i < 8) {
-            if (pieces_white[r + i][c + i] > 0) { // if has white piece
-                break;
-            }
-            // Down-right diagonal
-            moves.push([r + i, c + i]);
-            if (pieces_black[r + i][c + i] > 0) { // if has black piece
-                break;
-            }
-        }
-    }
+    const enemyPieces = blackPiece ? [1, 3] : [2, 4];
 
-    for (let i = 1; i <= 8; i++) {
-        if (r + i < 8 && c - i >= 0) {
-            if (pieces_white[r + i][c - i] > 0) { // if has white piece
-                break;
-            }
-            // Down-left diagonal
-            moves.push([r + i, c - i]);
-            if (pieces_black[r + i][c - i] > 0) { // if has black piece
-                break;
-            }
-        }
-    }
-
-    for (let i = 1; i <= 8; i++) {
-        if (r - i >= 0 && c + i < 8) {
-            if (pieces_white[r - i][c + i] > 0) { // if has white piece
-                break;
-            }
-            // Up-right diagonal
-            moves.push([r - i, c + i]);
-            if (pieces_black[r - i][c + i] > 0) { // if has black piece
-                break;
-            }
-        }
-    }
-
-    for (let i = 1; i <= 8; i++) {
-        if (r - i >= 0 && c - i >= 0) {
-            if (pieces_white[r - i][c - i] > 0) { // if has white piece
-                break;
-            }
-            // Up-left diagonal
-            moves.push([r - i, c - i]);
-            if (pieces_black[r - i][c - i] > 0) { // if has black piece
-                break;
-            }
-        }
-    }
-
-    // Apply extra filtering (board limits, collisions, etc)
-    moves = filterMoves(moves);
-
-    return moves;
-}
-
-function getChains(r, c, blackPiece, visited = new Set()) {
-    const enemy = blackPiece ? 1 : 2;
     let captures = [];
-
     const dirs = [
-        [-1, 1], // up-right
-        [-1, -1], // up-left
-        [1, 1], // down-right
-        [1, -1]    // down-left
+        [-1, 1], [-1, -1],
+        [1, 1], [1, -1]
     ];
 
     const key = `${r},${c}`;
-    if (visited.has(key))
-        return [];
+    if (visited.has(key)) return [];
     visited.add(key);
 
-    for (let i = 0; i < dirs.length; i++) {
-        const dr = dirs[i][0];
-        const dc = dirs[i][1];
+    for (let [dr, dc] of dirs) {
 
-        const r1 = r + dr;
-        const c1 = c + dc;
-        const r2 = r + dr * 2;
-        const c2 = c + dc * 2;
+        if (isKing) {
 
-        if (r2 < 0 || r2 >= 8 || c2 < 0 || c2 >= 8)
-            continue;
+            // REI – percorre tudo até achar peça
+            let rr = r + dr;
+            let cc = c + dc;
 
-        if (pieces[r1][c1] == enemy && pieces[r2][c2] == 0) {
-            captures.push([r2, c2]);
+            let foundEnemy = false;
+            let er = -1, ec = -1;
 
-            const more = getChains(r2, c2, blackPiece, new Set(visited));
-            captures.push(...more);
+            while (rr >= 0 && rr < 8 && cc >= 0 && cc < 8) {
+
+                if (!foundEnemy && enemyPieces.includes(pieces[rr][cc])) {
+                    foundEnemy = true;
+                    er = rr;
+                    ec = cc;
+                }
+                else if (foundEnemy && pieces[rr][cc] == 0) {
+
+                    captures.push([rr, cc]);
+
+                    const more = getChains(rr, cc, blackPiece, true, new Set(visited));
+                    captures.push(...more);
+                }
+                else if (pieces[rr][cc] != 0 && !foundEnemy) {
+                    break;
+                }
+                else if (foundEnemy && pieces[rr][cc] != 0) {
+                    break;
+                }
+
+                rr += dr;
+                cc += dc;
+            }
+
+        } else {
+
+            // PEÃO – captura 2 casas
+            const r1 = r + dr;
+            const c1 = c + dc;
+            const r2 = r + dr * 2;
+            const c2 = c + dc * 2;
+
+            if (r2 < 0 || r2 >= 8 || c2 < 0 || c2 >= 8)
+                continue;
+
+            if (enemyPieces.includes(pieces[r1][c1]) && pieces[r2][c2] == 0) {
+
+                captures.push([r2, c2]);
+
+                const more = getChains(r2, c2, blackPiece, false, new Set(visited));
+                captures.push(...more);
+            }
         }
     }
 
     return captures;
 }
 
+function getKingMoves(r, c, blackPiece) {
+
+    const enemy = blackPiece ? [1, 3] : [2, 4];
+    let moves = [];
+
+    const dirs = [
+        [-1, 1], [-1, -1],
+        [1, 1], [1, -1]
+    ];
+
+    for (let [dr, dc] of dirs) {
+
+        let rr = r + dr;
+        let cc = c + dc;
+
+        let foundEnemy = false;
+        let er = -1, ec = -1;
+
+        while (rr >= 0 && rr < 8 && cc >= 0 && cc < 8) {
+
+            if (!foundEnemy && pieces[rr][cc] == 0) {
+                moves.push([rr, cc]); // movimento simples
+            }
+            else if (!foundEnemy && enemy.includes(pieces[rr][cc])) {
+                foundEnemy = true;
+                er = rr;
+                ec = cc;
+            }
+            else if (foundEnemy && pieces[rr][cc] == 0) {
+                moves.push([rr, cc]); // possível captura
+
+                // combos
+                const more = getChains(rr, cc, blackPiece, true);
+                moves.push(...more);
+            }
+            else {
+                break;
+            }
+
+            rr += dr;
+            cc += dc;
+        }
+    }
+
+    return filterMoves(moves);
+}
+
+
+
 function getPawnMoves(r, c, blackPiece) {
     let moves = [];
 
-    const enemy = blackPiece ? 1 : 2;
+    // antes era só 1 ou 2 → AGORA inclui 1/3 ou 2/4
+    const enemy = blackPiece ? [1, 3] : [2, 4];
 
-    // ------ MOVIMENTO SIMPLES (igual estava!) ------
+    // ------ MOVIMENTO SIMPLES ------
     if (!blackPiece) {
         if (r - 1 >= 0) {
             if (c + 1 < 8 && pieces[r - 1][c + 1] == 0)
@@ -266,7 +259,7 @@ function getPawnMoves(r, c, blackPiece) {
         }
     }
 
-    // ------ CAPTURAS INICIAIS (em 4 direções) ------
+    // ------ CAPTURAS INICIAIS (4 direções) ------
     const dirs = [
         [-1, 1],
         [-1, -1],
@@ -286,7 +279,8 @@ function getPawnMoves(r, c, blackPiece) {
         if (r2 < 0 || r2 >= 8 || c2 < 0 || c2 >= 8)
             continue;
 
-        if (pieces[r1][c1] == enemy && pieces[r2][c2] == 0) {
+        // antes era apenas: pieces[r1][c1] == enemy
+        if (enemy.includes(pieces[r1][c1]) && pieces[r2][c2] == 0) {
             moves.push([r2, c2]);
         }
     }
@@ -371,13 +365,9 @@ canvas.addEventListener("click", function (e) {
 
                         pieces[r][c] = piece;
 
-
-                        if (piece == 1 && r == 0) {
-                            //chegou no fim, vira dama
-                        }
-                        if (piece == 2 && r == 8) {
-                            //chegou no fim, vira dama
-                        }
+                        // Turn to King
+                        if (piece == 1 && r == 0) pieces[r][c] = 3;
+                        if (piece == 2 && r == 7) pieces[r][c] = 4;
 
 
                         let countMoves = selectedPieceX - r;
@@ -388,11 +378,49 @@ canvas.addEventListener("click", function (e) {
                             let yy = (selectedPieceY + c) / 2;
                             pieces[xx][yy] = 0; // 
                         }
+                        
+                        // *** REI COME TUDO NO CAMINHO (MOVIMENTOS > 2) ***
+                        if (countMoves > 2) {
+                            let dr = (r - selectedPieceX) > 0 ? 1 : -1;
+                            let dc = (c - selectedPieceY) > 0 ? 1 : -1;
+
+                            let rr = selectedPieceX + dr;
+                            let cc = selectedPieceY + dc;
+
+                            // percorre toda a diagonal até chegar no destino
+                            while (!(rr == r && cc == c)) {
+
+                                // se encontrar peça inimiga → remove
+                                if (piece == 3 || piece == 1) {
+                                    // time branco → inimigo 2 ou 4
+                                    if (pieces[rr][cc] == 2 || pieces[rr][cc] == 4) {
+                                        pieces[rr][cc] = 0;
+//                                        break;
+                                    }
+                                }
+
+                                if (piece == 4 || piece == 2) {
+                                    // time preto → inimigo 1 ou 3
+                                    if (pieces[rr][cc] == 1 || pieces[rr][cc] == 3) {
+                                        pieces[rr][cc] = 0;
+//                                        break;
+                                    }
+                                }
+
+                                rr += dr;
+                                cc += dc;
+                            }
+                        }
 
                         pieces[selectedPieceX][selectedPieceY] = 0;
                         selectedPieceX = -1;
                         selectedPieceY = -1;
                         markedSquares = []; // Clear marked squares
+                        
+                        // TODO:
+                        // Antes de setar o próximo turno,
+                        // deve verificar se pode comer mais peças
+                        // fazer um temporizador pra passar o turno se ficar parado
 
                         turn = 2;
 
@@ -404,16 +432,12 @@ canvas.addEventListener("click", function (e) {
     }
 
     if (!moved) {
-        //} else  {
 
         let piece = pieces[r][c];
 
-        //selectedPieceX=-1;
-        //selectedPieceY=-1;
         markedSquares = []; // Clear marked squares
 
         if (piece > 0) {
-//                            console.log("Peça branca:", labels[pieceW - 1]);
 
             selectedPieceX = r;
             selectedPieceY = c;
@@ -424,12 +448,14 @@ canvas.addEventListener("click", function (e) {
                 moves = getPawnMoves(r, c, false);
             if (piece == 2)
                 moves = getPawnMoves(r, c, true);
-
+            if (piece == 3)
+                moves = getKingMoves(r, c, false);
+            if (piece == 4)
+                moves = getKingMoves(r, c, true);
 
             for (let i = 0; i < moves.length; i++) {
                 markedSquares.push([moves[i][0], moves[i][1]]);
             }
-
 
         }
     }
@@ -478,7 +504,43 @@ function ia() {
 }
 
 window.setInterval(function () {
-    if (turn == 2) {
-        ia();
+
+    let player_1_pieces = 0;
+    let player_2_pieces = 0;
+
+    for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+            if (pieces[r][c] == 1 || pieces[r][c] == 3) {
+                player_1_pieces += 1;
+            }
+            if (pieces[r][c] == 2 || pieces[r][c] == 4) {
+                player_2_pieces += 1;
+            }
+//            }
+        }
     }
+
+    if (player_2_pieces == 0) {
+        status.innerHTML = 'Você venceu!';
+    } else if (player_1_pieces == 0) {
+        status.innerHTML = 'Player 2 venceu!';
+    } else {
+
+        let str_pieces = '';
+        str_pieces += '<br>';
+        str_pieces += 'Player 1: ' + player_1_pieces + ' peças - ';
+        str_pieces += 'Player 2: ' + player_2_pieces + ' peças';
+
+
+        if (turn == 1) {
+            status.innerHTML = 'Sua vez!' + str_pieces;
+        }
+        if (turn == 2) {
+            status.innerHTML = 'Seu adversário está jogando!' + str_pieces;
+        }
+    }
+
+//    if (turn == 2) {
+//        ia();
+//    }
 }, 100);

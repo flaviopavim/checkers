@@ -1,5 +1,6 @@
 body {
     background: #1b1b1b;
+    /*display: block;*/
     display: flex;
     justify-content: center;
     align-items: center;
