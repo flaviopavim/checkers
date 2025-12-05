@@ -1,6 +1,6 @@
 # Checkers game
 
-A simple Checkers Game in Javascript
+A simple Checkers game in Javascript
 Maded by Flávio Pavim
 https://flaviopavim.com.br
 
