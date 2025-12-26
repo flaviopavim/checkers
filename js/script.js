@@ -29,8 +29,8 @@ const tile = canvas.width / size;  // Pixel size of each square
 
 const light = "#f0d9b5";           // Light square color
 const dark = "#b58863";           // Dark square color
-//            const light = "#74b9ff";
-//            const dark = "#0984e3";
+//const light = "#74b9ff";
+//const dark = "#0984e3";
 
 // Draws the 8x8 checkerboard
 function drawBoard() {
